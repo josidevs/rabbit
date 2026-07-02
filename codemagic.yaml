@@ -1,0 +1,57 @@
+# Codemagic CI for Rabbit (personal use).
+#
+# Setup:
+#   1. Push this repo to GitHub/GitLab/Bitbucket.
+#   2. codemagic.io -> Add application -> pick the repo -> "Flutter App (via codemagic.yaml)".
+#   3. Start a build for the workflow you want; download the artifact from the
+#      build page (APK for Android, IPA for iOS sideloading).
+#
+# No signing secrets are required: the Android release build uses the default
+# debug signing config from the Flutter template (fine for installing on your
+# own device), and the iOS workflow builds unsigned for AltStore/SideStore.
+
+workflows:
+  android-apk:
+    name: Android APK (personal)
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      java: 21
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Test
+        script: flutter test
+      - name: Build APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+
+  ios-unsigned-ipa:
+    name: iOS unsigned IPA (sideload with AltStore/SideStore)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Build unsigned
+        script: flutter build ios --release --no-codesign
+      - name: Package IPA
+        script: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r Rabbit-unsigned.ipa Payload
+    artifacts:
+      - Rabbit-unsigned.ipa
